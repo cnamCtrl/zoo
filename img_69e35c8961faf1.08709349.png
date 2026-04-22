@@ -1,0 +1,60 @@
+<?php
+// medical/index.php
+require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/sidebar.php';
+
+try {
+    $medQuery = "
+        SELECT m.*, a.name as animal_name, CONCAT(s.first_name, ' ', s.last_name) as vet_name 
+        FROM medical_records m 
+        JOIN animals a ON m.animal_id = a.id 
+        JOIN staff s ON m.vet_id = s.id 
+        ORDER BY m.checkup_date DESC";
+    $records = $pdo->query($medQuery)->fetchAll();
+} catch (PDOException $e) {
+    if ($e->getCode() == '42S02') {
+        $records = [];
+    } else {
+        echo "Error: " . $e->getMessage();
+    }
+}
+?>
+
+<div class="dash-header">
+    <div>
+        <h1>Medical Records</h1>
+        <p style="color: var(--text-muted); margin-top: 0.25rem;">Track health checkups and treatments.</p>
+    </div>
+    <a href="add.php" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Record</a>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Animal</th>
+                <th>Diagnosis</th>
+                <th>Vet Name</th>
+                <th>Next Checkup</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($records)): ?>
+            <tr><td colspan="5" style="text-align: center;">No medical records found.</td></tr>
+            <?php else: ?>
+                <?php foreach ($records as $r): ?>
+                <tr>
+                    <td><?= formatDate($r['checkup_date']) ?></td>
+                    <td><b><?= htmlspecialchars($r['animal_name']) ?></b></td>
+                    <td><?= htmlspecialchars($r['diagnosis']) ?></td>
+                    <td><?= htmlspecialchars($r['vet_name']) ?></td>
+                    <td><?= $r['next_checkup'] ? formatDate($r['next_checkup']) : '<span style="color:var(--text-muted);">None</span>' ?></td>
+                </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</div>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -1,0 +1,97 @@
+<?php
+// medical/add.php
+require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/sidebar.php';
+
+$error = '';
+$success = '';
+
+// Fetch animals and staff (specifically Vets if possible, but we'll list all for demo)
+$animals = $pdo->query("SELECT id, name, species FROM animals ORDER BY name")->fetchAll();
+$vets = $pdo->query("SELECT id, first_name, last_name, role_title FROM staff ORDER BY first_name")->fetchAll();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $animal_id = $_POST['animal_id'];
+    $vet_id = $_POST['vet_id'];
+    $checkup_date = $_POST['checkup_date'];
+    $diagnosis = trim($_POST['diagnosis']);
+    $treatment = trim($_POST['treatment']);
+    $next_checkup = $_POST['next_checkup'] ?: null;
+
+    if (empty($animal_id) || empty($vet_id) || empty($checkup_date) || empty($diagnosis)) {
+        $error = "Animal, Vet, Checkup Date, and Diagnosis are required.";
+    } else {
+        try {
+            $stmt = $pdo->prepare("INSERT INTO medical_records (animal_id, vet_id, checkup_date, diagnosis, treatment, next_checkup) VALUES (?, ?, ?, ?, ?, ?)");
+            if ($stmt->execute([$animal_id, $vet_id, $checkup_date, $diagnosis, $treatment, $next_checkup])) {
+                $success = "Medical record added successfully!";
+            } else {
+                $error = "Failed to add medical record.";
+            }
+        } catch (PDOException $e) {
+            $error = "Error: " . $e->getMessage();
+        }
+    }
+}
+?>
+
+<div class="dash-header">
+    <div>
+        <h1>Add Medical Record</h1>
+        <p style="color: var(--text-muted); margin-top: 0.25rem;">Log a health checkup, diagnosis, or treatment.</p>
+    </div>
+    <a href="index.php" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to List</a>
+</div>
+
+<div class="form-container">
+    <?php if ($error): ?><div class="alert alert-error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
+
+    <form method="POST" action="" class="form-grid">
+        <div class="form-group">
+            <label>Select Animal *</label>
+            <select name="animal_id" required>
+                <option value="">-- Choose Animal --</option>
+                <?php foreach ($animals as $a): ?>
+                    <option value="<?= $a['id'] ?>"><?= htmlspecialchars($a['name'] . ' (' . $a['species'] . ')') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Attending Veterinarian *</label>
+            <select name="vet_id" required>
+                <option value="">-- Choose Vet --</option>
+                <?php foreach ($vets as $v): ?>
+                    <option value="<?= $v['id'] ?>"><?= htmlspecialchars($v['first_name'] . ' ' . $v['last_name'] . ' - ' . $v['role_title']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Checkup Date *</label>
+            <input type="date" name="checkup_date" value="<?= date('Y-m-d') ?>" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Next Scheduled Checkup</label>
+            <input type="date" name="next_checkup">
+        </div>
+        
+        <div class="form-group full-width">
+            <label>Diagnosis *</label>
+            <input type="text" name="diagnosis" placeholder="e.g. Routine checkup, Mild infection" required>
+        </div>
+        
+        <div class="form-group full-width">
+            <label>Treatment Plan</label>
+            <textarea name="treatment" rows="4" placeholder="Describe medications, rest periods, or dietary changes"></textarea>
+        </div>
+        
+        <div class="form-group full-width" style="margin-top: 1rem;">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Save Record</button>
+        </div>
+    </form>
+</div>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

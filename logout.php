@@ -1,69 +1,102 @@
 <?php
-// auth/login.php
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/functions.php';
+// index.php
+require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/sidebar.php';
 
-if (isLoggedIn()) {
-    redirect('/zoo_project/index.php');
-}
-
-$error = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-
-    if (empty($username) || empty($password)) {
-        $error = 'Please enter both username and password.';
-    } else {
-        $stmt = $pdo->prepare("SELECT id, username, password, role FROM users WHERE username = :username");
-        $stmt->execute(['username' => $username]);
-        $user = $stmt->fetch();
-
-        if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['user_role'] = $user['role'];
-            redirect('/zoo_project/index.php');
-        } else {
-            $error = 'Invalid credentials.';
-        }
-    }
+// Fetch summary stats for the dashboard
+try {
+    $animal_count = $pdo->query("SELECT COUNT(*) FROM animals")->fetchColumn();
+    $staff_count = $pdo->query("SELECT COUNT(*) FROM staff")->fetchColumn();
+    $enclosure_count = $pdo->query("SELECT COUNT(*) FROM enclosures")->fetchColumn();
+    $pending_feedings = $pdo->query("SELECT COUNT(*) FROM feedings WHERE status = 'Pending'")->fetchColumn();
+    
+    // Recent animals
+    $recent_animals = $pdo->query("SELECT name, species, status FROM animals ORDER BY id DESC LIMIT 5")->fetchAll();
+} catch (PDOException $e) {
+    $error = "Error fetching data: " . $e->getMessage();
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login - Zoo Management</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/zoo_project/assets/css/style.css">
-</head>
-<body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <h2>Welcome Back!</h2>
-            <?php if ($error): ?>
-                <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
-            <?php endif; ?>
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" name="password" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width:100%;">Login</button>
-            </form>
-            <div class="auth-links">
-                Don't have an account? <a href="register.php">Register here</a>
-            </div>
-            <div class="auth-links" style="margin-top: 10px;">
-                Demonstration Admin: <b>admin</b> / <b>admin123</b>
-            </div>
+
+<div class="dash-header">
+    <div>
+        <h1>Dashboard Overview</h1>
+        <p style="color: var(--text-muted); margin-top: 0.25rem;">Welcome back, <b><?= htmlspecialchars($_SESSION['username']) ?></b>. Here's what's happening at the zoo today.</p>
+    </div>
+    <a href="/zoo_project/animals/add.php" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add New Animal</a>
+</div>
+
+<div class="overview-cards">
+    <div class="card">
+        <div class="card-icon pink">
+            <i class="fa-solid fa-paw"></i>
+        </div>
+        <div class="card-info">
+            <h3>Total Animals</h3>
+            <h2><?= number_format($animal_count) ?></h2>
         </div>
     </div>
-</body>
-</html>
+    <div class="card">
+        <div class="card-icon orange">
+            <i class="fa-solid fa-map-location-dot"></i>
+        </div>
+        <div class="card-info">
+            <h3>Enclosures</h3>
+            <h2><?= number_format($enclosure_count) ?></h2>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-icon green">
+            <i class="fa-solid fa-users"></i>
+        </div>
+        <div class="card-info">
+            <h3>Staff Members</h3>
+            <h2><?= number_format($staff_count) ?></h2>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-icon blue">
+            <i class="fa-solid fa-bone"></i>
+        </div>
+        <div class="card-info">
+            <h3>Pending Feedings</h3>
+            <h2><?= number_format($pending_feedings) ?></h2>
+        </div>
+    </div>
+</div>
+
+<div class="table-container">
+    <div class="table-header">
+        <h2>Recently Added Animals</h2>
+        <a href="/zoo_project/animals/index.php" class="btn btn-outline" style="padding: 0.5rem 1rem;">View All</a>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Species</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($recent_animals)): ?>
+            <tr>
+                <td colspan="3" style="text-align: center; padding: 2rem;">No animals found. Start by adding some!</td>
+            </tr>
+            <?php else: ?>
+                <?php foreach ($recent_animals as $animal): ?>
+                <tr>
+                    <td><b><?= htmlspecialchars($animal['name']) ?></b></td>
+                    <td><?= htmlspecialchars($animal['species']) ?></td>
+                    <td>
+                        <span class="badge <?= $animal['status'] === 'Healthy' ? 'badge-healthy' : 'badge-sick' ?>">
+                            <?= htmlspecialchars($animal['status']) ?>
+                        </span>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</div>
+
+<?php require_once __DIR__ . '/includes/footer.php'; ?>
